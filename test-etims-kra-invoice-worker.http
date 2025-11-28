@@ -1,0 +1,7 @@
+@__HostAddress = http://localhost:5042
+
+### Health Check
+GET {{__HostAddress}}/
+Accept: application/json
+
+###
