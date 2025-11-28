@@ -1,0 +1,51 @@
+# Dockerfile.dev
+
+# .NET SDK (9.0) on Debian Bookworm
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS dev
+
+# Install build tools, useful CLIs, and Java runtime (for VSCU JAR if needed)
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    clang \
+    curl \
+    gcc \
+    gnupg \
+    libc6-dev \
+    libunwind-dev \
+    lsb-release \
+    zlib1g-dev \
+    git \
+    jq \
+    less \
+    vim \
+    nano \
+    iputils-ping \
+    net-tools \
+    openjdk-17-jre-headless \
+    && mkdir -p /etc/apt/keyrings \
+    # GitHub CLI repo
+    && curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+    | gpg --dearmor -o /etc/apt/keyrings/githubcli-archive-keyring.gpg \
+    && chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+    > /etc/apt/sources.list.d/github-cli.list \
+    # Azure CLI repo
+    && curl -fsSL https://packages.microsoft.com/keys/microsoft.asc \
+    | gpg --dearmor -o /etc/apt/keyrings/microsoft-archive-keyring.gpg \
+    && chmod go+r /etc/apt/keyrings/microsoft-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/microsoft-archive-keyring.gpg] https://packages.microsoft.com/repos/azure-cli/ $(lsb_release -cs) main" \
+    > /etc/apt/sources.list.d/azure-cli.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends gh azure-cli \
+    && rm -rf /var/lib/apt/lists/*
+
+# Optional but handy if you ever run the VSCU JAR inside this container
+ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+ENV PATH="${JAVA_HOME}/bin:${PATH}"
+
+# Default workdir for devcontainer
+WORKDIR /workspace
+
+# Keep entrypoint as dotnet CLI
+ENTRYPOINT ["dotnet"]
