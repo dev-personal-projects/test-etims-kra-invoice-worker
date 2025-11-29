@@ -46,12 +46,22 @@ public class KraEtimsService
         
         // Set base address
         // KRA eTIMS API Base URLs:
-        // Sandbox: https://etims-api-sbx.kra.go.ke
+        // Sandbox: https://etims-api-sbx.kra.go.ke (new format)
+        //          https://etims-sbx.kra.go.ke/api (old format - backward compatible)
         // Production: https://etims-api.kra.go.ke
         // Note: Actual endpoint paths are provided in KRA documentation after sandbox registration
-        if (!string.IsNullOrEmpty(config.BaseUrl))
+        
+        // Handle backward compatibility for old BaseUrl format
+        var baseUrl = config.BaseUrl;
+        if (!string.IsNullOrEmpty(baseUrl))
         {
-            _httpClient.BaseAddress = new Uri(config.BaseUrl);
+            // If old format is used (contains /api), remove it as endpoints are now separate
+            if (baseUrl.EndsWith("/api", StringComparison.OrdinalIgnoreCase))
+            {
+                baseUrl = baseUrl.Substring(0, baseUrl.Length - 4);
+                _logger?.LogWarning("BaseUrl contains '/api' suffix. This is deprecated. Use base URL without '/api' and configure endpoints separately.");
+            }
+            _httpClient.BaseAddress = new Uri(baseUrl);
         }
 
         // Set default headers
@@ -99,7 +109,10 @@ public class KraEtimsService
             // Submit to KRA API using configured endpoint
             // Actual endpoints are provided in KRA eTIMS documentation after sandbox registration
             // Common patterns: /api/oscu/invoice/submit, /api/v1/invoice, /oscu/api/invoice
-            var endpoint = _config.InvoiceSubmitEndpoint;
+            var endpoint = string.IsNullOrWhiteSpace(_config.InvoiceSubmitEndpoint) 
+                ? "/api/oscu/invoice/submit" 
+                : _config.InvoiceSubmitEndpoint;
+            
             _logger?.LogInformation("Submitting to KRA endpoint: {Endpoint}", endpoint);
             var response = await _httpClient.PostAsync(endpoint, content);
 
@@ -289,7 +302,11 @@ public class KraEtimsService
         try
         {
             // Use configured endpoint pattern, replacing {invoiceNumber} placeholder if present
-            var endpoint = _config.InvoiceStatusEndpoint.Replace("{invoiceNumber}", invoiceNumber);
+            var baseEndpoint = string.IsNullOrWhiteSpace(_config.InvoiceStatusEndpoint) 
+                ? "/api/oscu/invoice/status" 
+                : _config.InvoiceStatusEndpoint;
+            
+            var endpoint = baseEndpoint.Replace("{invoiceNumber}", invoiceNumber);
             if (!endpoint.Contains(invoiceNumber))
             {
                 endpoint = $"{endpoint}/{invoiceNumber}";
